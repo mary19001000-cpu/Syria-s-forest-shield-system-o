@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0a0a0a">
+<title>🛡️ درع الغابة v4.1 — المنظومة الموحدة</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="assets/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',Tahoma,sans-serif;-webkit-tap-highlight-color:transparent}
+body{background:#0a0a0a;color:#e0e0e0;height:100vh;overflow:hidden;display:flex;flex-direction:column}
+
+/* ====== شاشة الدخول ====== */
+#loginScreen{position:fixed;inset:0;background:radial-gradient(ellipse at top,#1a2f1a,#0a0a0a 70%);display:flex;flex-direction:column;justify-content:center;align-items:center;z-index:9000;padding:20px;text-align:center}
+#loginScreen .logo{width:110px;height:110px;background:#2e7d32;border-radius:50%;display:flex;justify-content:center;align-items:center;font-size:3.2rem;box-shadow:0 0 50px rgba(46,125,50,.55);border:3px solid #66bb6a;margin-bottom:14px;animation:pulse 2.4s infinite}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+#loginScreen h1{color:#fff;font-size:1.5rem;margin-bottom:4px}
+#loginScreen .sub{color:#a5d6a7;font-size:.85rem;margin-bottom:24px}
+.roles{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;width:100%;max-width:520px}
+.role-card{background:#141414;border:2px solid #2a4a2a;border-radius:14px;padding:20px 8px;cursor:pointer;transition:.2s;text-align:center}
+.role-card:hover{transform:translateY(-4px);border-color:#66bb6a;box-shadow:0 8px 24px rgba(46,125,50,.3)}
+.role-card .ic{font-size:2.4rem;display:block;margin-bottom:8px}
+.role-card .t{font-weight:bold;color:#fff;font-size:.95rem}
+.role-card .d{font-size:.68rem;color:#888;margin-top:4px}
+.role-card.ops{border-color:#6a1b9a}.role-card.ops:hover{border-color:#ba68c8;box-shadow:0 8px 24px rgba(156,39,176,.3)}
+.role-card.mon{border-color:#01579b}.role-card.mon:hover{border-color:#4fc3f7;box-shadow:0 8px 24px rgba(3,169,244,.3)}
+#loginFooter{margin-top:22px;font-size:.65rem;color:#555}
+
+/* نافذة كلمة السر */
+#pwModal{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;justify-content:center;align-items:center;z-index:9500;padding:20px}
+#pwModal.active{display:flex}
+.pw-box{background:#1a1a1a;border:1px solid #444;border-radius:14px;padding:22px;width:100%;max-width:340px;text-align:center}
+.pw-box h3{margin-bottom:4px;color:#fff}
+.pw-box .who{font-size:.78rem;color:#999;margin-bottom:14px}
+.pw-box input{width:100%;padding:12px;border-radius:8px;border:1px solid #555;background:#0d0d0d;color:#fff;font-size:1.2rem;text-align:center;letter-spacing:4px;direction:ltr;margin-bottom:12px}
+.pw-err{color:#ef5350;font-size:.75rem;min-height:18px;margin-bottom:8px}
+.row{display:flex;gap:8px}
+.row .btn{flex:1}
+
+/* ====== الهيكل العام ====== */
+.topbar{background:#111;border-bottom:2px solid #2e7d32;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;z-index:100;gap:8px}
+.topbar h1{font-size:.95rem;color:#66bb6a;white-space:nowrap}
+#connStatus{font-size:.68rem;padding:3px 10px;border-radius:10px;background:#333;color:#aaa;white-space:nowrap}
+#connStatus.online{background:#1b5e20;color:#a5d6a7}
+#connStatus.offline{background:#b71c1c;color:#ffcdd2}
+.screen{display:none;flex:1;min-height:0;flex-direction:column}
+.screen.active{display:flex}
+
+.btn{border:none;border-radius:8px;padding:10px 14px;font-size:.85rem;color:#fff;cursor:pointer;font-weight:bold;transition:.15s}
+.btn:active{transform:scale(.97)}
+.btn-green{background:#2e7d32}.btn-red{background:#d32f2f}.btn-orange{background:#ff6f00}
+.btn-blue{background:#1976d2}.btn-gray{background:#444}.btn-purple{background:#6a1b9a}
+.btn-sm{padding:6px 10px;font-size:.72rem;border-radius:6px}
+
+/* ====== شاشة العمليات ====== */
+#opsLayout{display:flex;flex:1;min-height:0;flex-direction:column}
+#opsForm{background:#141414;border-bottom:1px solid #2a2a2a;padding:10px 12px}
+#opsForm h2{font-size:.9rem;color:#ce93d8;margin-bottom:8px}
+.fgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:8px}
+input[type=text],input[type=number],select,textarea{width:100%;padding:9px;border-radius:6px;border:1px solid #444;background:#1e1e1e;color:#fff;font-size:.85rem}
+#opsTableWrap{flex:1;overflow-y:auto;padding:10px}
+.rep-row{background:#161616;border:1px solid #2c2c2c;border-right:4px solid #d32f2f;border-radius:8px;padding:10px;margin-bottom:8px}
+.rep-row.done{border-right-color:#4CAF50;opacity:.6}
+.rep-row.proc{border-right-color:#ff9800}
+.rep-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;flex-wrap:wrap;gap:6px}
+.rep-title{font-weight:bold;color:#ff8a80;font-size:.88rem}
+.rep-sub{font-size:.72rem;color:#999;line-height:1.6}
+.badge{display:inline-block;padding:1px 8px;border-radius:8px;font-size:.62rem;font-weight:bold;margin-left:4px}
+.b-new{background:#c62828;color:#fff}.b-proc{background:#ef6c00;color:#fff}.b-done{background:#2e7d32;color:#fff}
+.b-crit{background:#b71c1c}.b-high{background:#e65100}.b-med{background:#f9a825;color:#000}.b-low{background:#546e7a}
+
+/* ====== شاشة المراقب ====== */
+#monLayout{display:flex;flex:1;min-height:0;flex-direction:column;position:relative}
+#monMap{flex:1;min-height:0;background:#1a1a1a}
+#monStats{position:absolute;top:10px;right:10px;z-index:500;display:flex;gap:8px;pointer-events:none;width:min(320px,58vw)}
+.stat{flex:1;background:rgba(10,10,10,.88);border:1px solid #333;border-radius:10px;padding:8px 4px;text-align:center;backdrop-filter:blur(4px)}
+.stat .v{font-size:1.2rem;font-weight:bold}
+.stat .l{font-size:.58rem;color:#888}
+#monFilters{position:absolute;bottom:12px;right:10px;left:10px;z-index:500;display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
+.chip{background:rgba(20,20,20,.9);border:1px solid #444;border-radius:16px;padding:6px 12px;font-size:.7rem;color:#ccc;cursor:pointer}
+.chip.on{border-color:#4fc3f7;color:#4fc3f7}
+#monList{max-height:34vh;overflow-y:auto;background:#111;border-top:2px solid #01579b;padding:8px}
+.mon-item{display:flex;justify-content:space-between;align-items:center;background:#161616;border:1px solid #2a3a4a;border-radius:8px;padding:8px 10px;margin-bottom:6px;cursor:pointer}
+.mon-item .mi-t{font-size:.8rem;font-weight:bold;color:#ff8a80}
+.mon-item .mi-s{font-size:.65rem;color:#888}
+.mon-item .mi-d{font-size:.8rem;color:#4fc3f7;font-weight:bold;white-space:nowrap}
+
+/* لوحة تفاصيل البلاغ (نقرة على الخريطة) */
+#monDetail{position:absolute;top:10px;left:10px;bottom:130px;width:290px;max-width:82vw;background:rgba(13,13,13,.97);border:1px solid #01579b;border-radius:12px;padding:12px;z-index:600;display:none;flex-direction:column;overflow-y:auto;backdrop-filter:blur(6px);box-shadow:0 8px 30px rgba(0,0,0,.6)}
+#monDetail.active{display:flex}
+#monDetail h3{font-size:.85rem;color:#4fc3f7;margin-bottom:8px}
+#monDetail .fgrid{grid-template-columns:1fr 1fr;margin-bottom:6px}
+#monDetail input,#monDetail select{margin-bottom:6px;padding:8px;font-size:.8rem}
+.md-row{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
+.md-row .btn{flex:1;min-width:80px}
+#mdMeta{font-size:.68rem;color:#888;line-height:1.7;margin-top:4px;border-top:1px dashed #333;padding-top:6px}
+
+/* ====== شاشة السائق (الملاحة) ====== */
+#drvLayout{display:flex;flex:1;min-height:0;flex-direction:column;position:relative}
+#drvMap{flex:1;min-height:0;background:#1a1a1a}
+#sheet{background:#111;border-top:2px solid #d32f2f;max-height:48vh;overflow-y:auto;padding:10px;transition:max-height .3s}
+#sheet.collapsed{max-height:58px;overflow:hidden}
+.sheet-handle{width:50px;height:4px;background:#444;border-radius:2px;margin:0 auto 8px;cursor:pointer}
+.sheet-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.sheet-head h2{font-size:.9rem;color:#ff5252}
+#navCard{background:linear-gradient(135deg,#1a0a0a,#2a1010);border:1px solid #d32f2f;border-radius:10px;padding:12px;margin-bottom:10px;display:none}
+#navCard.active{display:block}
+.nav-top{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.nav-arrow{font-size:2rem;min-width:48px;text-align:center;color:#ff5252}
+.nav-text{flex:1}
+.nav-text .instr{font-size:1rem;font-weight:bold;color:#fff}
+.nav-text .road{font-size:.75rem;color:#999;margin-top:2px}
+.nav-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center}
+.nav-stat{background:#0a0a0a;border:1px solid #333;border-radius:8px;padding:8px 4px}
+.nav-stat .v{font-size:1.05rem;font-weight:bold;color:#4CAF50}
+.nav-stat .l{font-size:.62rem;color:#888;margin-top:2px}
+.fire-item{background:#1a1a1a;border:1px solid #333;border-right:4px solid #d32f2f;border-radius:8px;padding:10px;margin-bottom:8px;cursor:pointer}
+.fire-item.selected{border-color:#4CAF50;background:#0f1f0f}
+.fire-item.far{opacity:.45}
+.fire-item .fi-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.fire-item .fi-title{font-weight:bold;color:#ff8a80;font-size:.88rem}
+.fire-item .fi-dist{font-weight:bold;color:#4CAF50;font-size:.85rem}
+.fire-item .fi-sub{font-size:.7rem;color:#999;line-height:1.5}
+#compassBox{position:absolute;top:10px;left:10px;z-index:500;background:rgba(17,17,17,.85);border:1px solid #444;border-radius:50%;width:58px;height:58px;display:flex;align-items:center;justify-content:center}
+#compassArrow{width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-bottom:24px solid #ff5252;transform-origin:center 70%;transition:transform .3s}
+#compassN{position:absolute;top:4px;font-size:.58rem;color:#4CAF50;font-weight:bold}
+.hint{font-size:.65rem;color:#666;text-align:center;padding:6px}
+
+/* Toast */
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(140px);background:#222;border:1px solid #444;color:#fff;padding:10px 20px;border-radius:24px;font-size:.85rem;z-index:9999;transition:transform .3s;max-width:90%;text-align:center}
+#toast.show{transform:translateX(-50%) translateY(0)}
+#toast.ok{background:#1b5e20;border-color:#4CAF50}
+#toast.err{background:#b71c1c;border-color:#f44336}
+#toast.warn{background:#e65100;border-color:#ff9800}
+</style>
+</head>
+<body>
+
+<!-- ============ شاشة الدخول ============ -->
+<div id="loginScreen">
+  <div class="logo">🛡️</div>
+  <h1>درع الغابة</h1>
+  <div class="sub">المنظومة الموحدة لإدارة حرائق الغابات — اختر دورك للدخول</div>
+  <div class="roles">
+    <div class="role-card ops" onclick="UI.askPassword('ops')">
+      <span class="ic">🖥️</span><div class="t">غرفة العمليات</div><div class="d">إدارة البلاغات وإرسال الفرق</div>
+    </div>
+    <div class="role-card mon" onclick="UI.askPassword('mon')">
+      <span class="ic">📡</span><div class="t">المراقب</div><div class="d">متابعة مباشرة + نقرة على الخريطة = مشاركة بلاغ</div>
+    </div>
+    <div class="role-card" onclick="UI.askPassword('drv')">
+      <span class="ic">🚒</span><div class="t">سائق الإطفاء</div><div class="d">ملاحة وتوجيه ميداني</div>
+    </div>
+  </div>
+  <div id="loginFooter">درع الغابة v4.1 — نواة موحدة | جميع الأدوار تعمل على قاعدة بيانات واحدة</div>
+</div>
+
+<!-- نافذة كلمة السر -->
+<div id="pwModal">
+  <div class="pw-box">
+    <h3 id="pwTitle">🔐 كلمة السر</h3>
+    <div class="who" id="pwWho"></div>
+    <input type="password" id="pwInput" placeholder="••••" autocomplete="off">
+    <div class="pw-err" id="pwErr"></div>
+    <div class="row">
+      <button class="btn btn-green" onclick="UI.tryLogin()">دخول</button>
+      <button class="btn btn-gray" onclick="UI.closePw()">إلغاء</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ الشاشات الثلاث ============ -->
+<div class="topbar" id="topbar" style="display:none">
+  <h1 id="screenTitle">🛡️ درع الغابة</h1>
+  <div style="display:flex;gap:8px;align-items:center">
+    <span id="connStatus">⏳ اتصال...</span>
+    <button class="btn btn-red btn-sm" onclick="UI.logout()">🚪 خروج</button>
+  </div>
+</div>
+
+<!-- غرفة العمليات -->
+<div class="screen" id="screen-ops">
+  <div id="opsLayout">
+    <div id="opsForm">
+      <h2>📝 تسجيل بلاغ حريق جديد</h2>
+      <div class="fgrid">
+        <select id="fType"><option>حريق غابة</option><option>حريق أعشاب</option><option>حريق أشجار مثمرة</option><option>دخان مشتبه</option></select>
+        <select id="fSev"><option value="حرج">🔴 حرج</option><option value="عالي" selected>🟠 عالي</option><option value="متوسط">🟡 متوسط</option><option value="منخفض">⚪ منخفض</option></select>
+        <input type="text" id="fLoc" placeholder="وصف الموقع (المنطقة، القرية...)">
+      </div>
+      <div class="fgrid">
+        <input type="number" id="fLat" step="any" placeholder="خط العرض Lat">
+        <input type="number" id="fLng" step="any" placeholder="خط الطول Lng">
+        <button class="btn btn-blue btn-sm" onclick="Ops.useMyLocation()">📍 موقعي الحالي</button>
+        <button class="btn btn-purple btn-sm" onclick="Ops.openMapPicker()">🗺️ من الخريطة</button>
+      </div>
+      <div class="row">
+        <button class="btn btn-red" onclick="Ops.submitReport()" style="flex:2">🚨 إرسال البلاغ للمنظومة</button>
+        <button class="btn btn-gray" onclick="Ops.clearForm()">مسح</button>
+      </div>
+    </div>
+    <div id="opsTableWrap"><div class="hint">📋 بلاغات المنظومة — تظهر هنا فور إرسالها من أي دور</div><div id="opsList"></div></div>
+  </div>
+</div>
+
+<!-- المراقب -->
+<div class="screen" id="screen-mon">
+  <div id="monLayout">
+    <div id="monMap"></div>
+    <div id="monStats">
+      <div class="stat"><div class="v" style="color:#ef5350" id="stNew">0</div><div class="l">جديدة 🔥</div></div>
+      <div class="stat"><div class="v" style="color:#ffa726" id="stProc">0</div><div class="l">قيد المعالجة 🚒</div></div>
+      <div class="stat"><div class="v" style="color:#66bb6a" id="stDone">0</div><div class="l">تم الإخماد ✅</div></div>
+    </div>
+    <div id="monFilters">
+      <span class="chip" onclick="toast('👆 انقر قرب بلاغ لعرضه، أو نقطة فارغة لإنشاء مسودة بلاغ')">👆 نقرة = بلاغ</span>
+      <span class="chip on" data-f="all" onclick="Mon.setFilter('all',this)">الكل</span>
+      <span class="chip" data-f="جديد" onclick="Mon.setFilter('جديد',this)">جديد</span>
+      <span class="chip" data-f="قيد المعالجة" onclick="Mon.setFilter('قيد المعالجة',this)">قيد المعالجة</span>
+      <span class="chip" data-f="حرج" onclick="Mon.setFilter('حرج',this)">حرج فقط</span>
+    </div>
+    <div id="monList"></div>
+
+    <!-- لوحة تفاصيل البلاغ: تُملأ بنقرة على الخريطة -->
+    <div id="monDetail">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <h3 id="mdTitle">📋 بيانات البلاغ</h3>
+        <button class="btn btn-gray btn-sm" onclick="Mon.closeDetail()">✕</button>
+      </div>
+      <div class="fgrid">
+        <select id="mdType"><option>حريق غابة</option><option>حريق أعشاب</option><option>حريق أشجار مثمرة</option><option>دخان مشتبه</option></select>
+        <select id="mdSev"><option value="حرج">🔴 حرج</option><option value="عالي" selected>🟠 عالي</option><option value="متوسط">🟡 متوسط</option><option value="منخفض">⚪ منخفض</option></select>
+      </div>
+      <input type="text" id="mdLoc" placeholder="وصف الموقع (القرية، المنطقة...)">
+      <div class="fgrid">
+        <input type="number" id="mdLat" step="any" placeholder="خط العرض">
+        <input type="number" id="mdLng" step="any" placeholder="خط الطول">
+      </div>
+      <div id="mdMeta"></div>
+      <div class="md-row">
+        <button class="btn btn-red btn-sm" onclick="Mon.saveReport()">💾 حفظ في المنظومة</button>
+        <button class="btn btn-blue btn-sm" onclick="Mon.sendToNav()">🧭 إرسال للملاحة</button>
+      </div>
+      <div class="md-row">
+        <button class="btn btn-green btn-sm" onclick="Mon.shareWA()">💬 واتساب</button>
+        <button class="btn btn-purple btn-sm" onclick="Mon.shareSMS()">✉️ SMS</button>
+        <button class="btn btn-orange btn-sm" onclick="Mon.center()">🎯 توسيط</button>
+      </div>
+      <div class="hint">يمكن تعديل الحقول قبل المشاركة — تُرسل القيم الحالية في الرسالة</div>
+    </div>
+  </div>
+</div>
+
+<!-- السائق -->
+<div class="screen" id="screen-drv">
+  <div id="drvLayout">
+    <div id="drvMap"></div>
+    <div id="compassBox"><span id="compassN">N</span><div id="compassArrow"></div></div>
+    <div id="sheet">
+      <div class="sheet-handle" onclick="document.getElementById('sheet').classList.toggle('collapsed')"></div>
+      <div class="sheet-head">
+        <h2>🔥 البلاغات النشطة</h2>
+        <div class="row">
+          <button class="btn btn-blue btn-sm" onclick="Drv.locate()">📍 موقعي</button>
+        </div>
+      </div>
+      <div id="navCard">
+        <div class="nav-top">
+          <div class="nav-arrow" id="navArrow">⬆️</div>
+          <div class="nav-text">
+            <div class="instr" id="navInstr">--</div>
+            <div class="road" id="navRoad">--</div>
+          </div>
+        </div>
+        <div class="nav-stats">
+          <div class="nav-stat"><div class="v" id="navDist">--</div><div class="l">كم متبقية</div></div>
+          <div class="nav-stat"><div class="v" id="navTime">--</div><div class="l">دقيقة</div></div>
+          <div class="nav-stat"><div class="v" id="navArrive">--</div><div class="l">الوصول</div></div>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <button class="btn btn-green btn-sm" style="flex:1" onclick="Drv.accept()">✅ استلام المهمة</button>
+          <button class="btn btn-gray btn-sm" style="flex:1" onclick="Drv.stopNav()">⏹️ إيقاف</button>
+          <button class="btn btn-blue btn-sm" style="flex:1" onclick="Drv.external()">🗺️ جوجل</button>
+          <button class="btn btn-orange btn-sm" style="flex:1" onclick="Drv.done()">🏁 تم الإخماد</button>
+        </div>
+      </div>
+      <div id="fireList"></div>
+      <div class="hint">اسحب الشريط للأسفل لتوسيع الخريطة</div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+
+<script>
+'use strict';
+
+/* ================================================================
+   درع الغابة v4.1 — النواة الموحدة
+   ملف واحد = ثلاثة أدوار (عمليات / مراقب / سائق)
+   الإصلاحات: منع عاصفة التنبيهات، طابور إرسال offline،
+   تحديث ذكي لواجهة السائق، لوحة تفاصيل المراقب + مشاركة واتساب/SMS
+================================================================ */
+
+/* ---------- Firebase ⚠️ استبدل الإعدادات التالية بمشروعك الخاص ----------
+   1) أنشئ مشروعاً على console.firebase.google.com
+   2) فعّل Anonymous Authentication
+   3) أنشئ قاعدة Firestore وانشر القواعد من ملف firestore.rules
+   4) انسخ إعدادات المشروع (Project settings) هنا
+-------------------------------------------------------------------- */
+var firebaseConfig = {
+  apiKey: "AIzaSyC1MTq6BVeEcKmBw_QpFvIvDHLHxvz-KnU",
+  authDomain: "forest-shield-syria-cad77.firebaseapp.com",
+  projectId: "forest-shield-syria-cad77",
+  storageBucket: "forest-shield-syria-cad77.firebasestorage.app",
+  messagingSenderId: "203491756771",
+  appId: "1:203491756771:web:9284bf6dab09d04705d3d6"
+};
+if (typeof firebase !== 'undefined' && !firebase.apps.length) firebase.initializeApp(firebaseConfig);
+var db = (typeof firebase !== 'undefined' && firebase.firestore) ? firebase.firestore() : null;
+var auth = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth() : null;
+if (db && db.enablePersistence) db.enablePersistence().catch(function(){});
+
+/* ---------- أدوات عامة ---------- */
+function toRad(d){return d*Math.PI/180}
+function haversine(a,b,c,d){var R=6371,dLat=toRad(c-a),dLng=toRad(d-b);var x=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(toRad(a))*Math.cos(toRad(c))*Math.sin(dLng/2)*Math.sin(dLng/2);return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));}
+function bearing(a,b,c,d){var y=Math.sin(toRad(d-b))*Math.cos(toRad(c));var x=Math.cos(toRad(a))*Math.sin(toRad(c))-Math.sin(toRad(a))*Math.cos(toRad(c))*Math.cos(toRad(d-b));return (x===0&&y===0)?0:(Math.atan2(y,x)*180/Math.PI+360)%360;}
+function fmtDist(km){return km<1?Math.round(km*1000)+' م':km.toFixed(1)+' كم';}
+function toast(msg,type){var t=document.getElementById('toast');t.textContent=msg;t.className='show'+(type?' '+type:'');clearTimeout(t._tm);t._tm=setTimeout(function(){t.className='';},3500);}
+function speak(text){if(!('speechSynthesis' in window))return;try{speechSynthesis.cancel();var u=new SpeechSynthesisUtterance(text);u.lang='ar-SA';u.rate=.95;speechSynthesis.speak(u);}catch(e){}}
+function buzz(p){if(navigator.vibrate)try{navigator.vibrate(p)}catch(e){}}
+function esc(s){return String(s==null?'':s).replace(/</g,'&lt;');}
+function validCoords(lat,lng){ return !isNaN(lat) && !isNaN(lng) && Math.abs(lat)<=90 && Math.abs(lng)<=180; }
+
+/* ---------- طابور الإرسال عند انقطاع الاتصال ---------- */
+var Queue = {
+  all: function(){ try{ return JSON.parse(localStorage.getItem('fs_queue')||'[]'); }catch(e){ return []; } },
+  save: function(q){ localStorage.setItem('fs_queue', JSON.stringify(q)); },
+  push: function(rec){ var q=Queue.all(); q.push(rec); Queue.save(q); },
+  flush: function(){
+    if(!navigator.onLine || !db) return;
+    var q=Queue.all(); if(!q.length) return;
+    var left=q.slice(), sent=0;
+    var chain=Promise.resolve();
+    q.forEach(function(rec){
+      chain=chain.then(function(){
+        return db.collection('reports').doc(String(rec.id)).set(rec)
+          .then(function(){ left.splice(left.indexOf(rec),1); sent++; })
+          .catch(function(){});
+      });
+    });
+    chain.then(function(){
+      Queue.save(left);
+      if(sent>0){ toast('📤 تم إرسال '+sent+' بلاغ معلّق تلقائياً','ok'); Store.knownCleanup(); }
+    });
+  }
+};
+window.addEventListener('online', function(){ toast('🟢 عاد الاتصال — جاري إرسال المعلّق','ok'); Queue.flush(); });
+setInterval(Queue.flush, 30000);
+
+/* حفظ بلاغ (مع طابور offline تلقائي) */
+function saveReportDoc(rec){
+  if(!db){ Queue.push(rec); toast('📥 لا يوجد اتصال — حُفظ البلاغ محلياً وسيُرسل تلقائياً','warn'); return; }
+  db.collection('reports').doc(String(rec.id)).set(rec)
+    .then(function(){ toast('🚨 تم بث البلاغ لكل وحدات المنظومة','ok'); })
+    .catch(function(){ Queue.push(rec); toast('📥 تعذّر الإرسال — حُفظ محلياً وسيُرسل عند عودة الاتصال','warn'); });
+}
+
+/* ---------- المخزن المركزي المشترك ---------- */
+var Store = {
+  reports: [],
+  onChange: [],
+  known: {},
+  emit: function(){ Store.onChange.forEach(function(cb){ try{cb()}catch(e){console.error(e)} }); },
+  get: function(id){ return Store.reports.find(function(r){return String(r.id)===String(id)}); },
+  active: function(){ return Store.reports.filter(function(r){return r.status!=='تم الإخماد'}); },
+  knownCleanup: function(){ /* إبقاء known متوافقاً مع الموجود فقط */
+    var s={}; Store.reports.forEach(function(r){ s[String(r.id)]=true; });
+    Object.keys(Store.known).forEach(function(k){ if(!s[k]) delete Store.known[k]; });
+  }
+};
+
+/* ---------- المصادقة والدخول ---------- */
+var UI = {
+  pendingRole: null,
+  currentRole: null,
+  ROLES: { ops:{title:'🖥️ غرفة العمليات', name:'غرفة العمليات', pw:'1111', icon:'🖥️'},
+           mon:{title:'📡 المراقب',       name:'المراقب',       pw:'2222', icon:'📡'},
+           drv:{title:'🚒 سائق الإطفاء',  name:'سائق الإطفاء',  pw:'3333', icon:'🚒'} },
+
+  loadPws: function(){
+    try{ var s=JSON.parse(localStorage.getItem('fs_pw')); if(s) Object.keys(s).forEach(function(k){ UI.ROLES[k].pw=s[k]; }); }catch(e){}
+  },
+  askPassword: function(role){
+    UI.pendingRole = role;
+    document.getElementById('pwTitle').textContent = '🔐 دخول: ' + UI.ROLES[role].title;
+    document.getElementById('pwWho').textContent = 'أدخل كلمة سر ' + UI.ROLES[role].name;
+    document.getElementById('pwErr').textContent = '';
+    document.getElementById('pwInput').value = '';
+    document.getElementById('pwModal').classList.add('active');
+    setTimeout(function(){document.getElementById('pwInput').focus();},100);
+  },
+  closePw: function(){ document.getElementById('pwModal').classList.remove('active'); UI.pendingRole=null; },
+  tryLogin: function(){
+    var v = document.getElementById('pwInput').value;
+    if (UI.pendingRole && v === UI.ROLES[UI.pendingRole].pw){
+      localStorage.setItem('fs_session', UI.pendingRole);
+      var r=UI.pendingRole; UI.closePw(); UI.enter(r);
+    } else {
+      document.getElementById('pwErr').textContent = '❌ كلمة سر خاطئة، حاول مجدداً';
+      buzz(200);
+    }
+  },
+  enter: function(role){
+    UI.currentRole = role;
+    document.getElementById('loginScreen').style.display='none';
+    document.getElementById('topbar').style.display='flex';
+    document.getElementById('screenTitle').textContent = UI.ROLES[role].title;
+    document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('active');});
+    document.getElementById('screen-'+role).classList.add('active');
+    if (role==='ops') Ops.init();
+    if (role==='mon') Mon.init();
+    if (role==='drv') Drv.init();
+    toast('✅ تم تسجيل الدخول: '+UI.ROLES[role].title,'ok');
+  },
+  logout: function(){
+    localStorage.removeItem('fs_session');
+    if (Drv.watchId) navigator.geolocation.clearWatch(Drv.watchId);
+    location.reload();
+  }
+};
+document.getElementById('pwInput').addEventListener('keydown',function(e){ if(e.key==='Enter') UI.tryLogin(); });
+
+/* ================================================================
+   المزامنة الواحدة — قلب المنظومة
+   ✔ إصلاح v4.1: أول لقطة لا تُطلق تنبيهات (منع العاصفة)
+================================================================ */
+var firstLoad = true;
+function startSync(){
+  if(!db){ toast('❌ Firebase غير مهيأ — راجع إعدادات المشروع','err'); return; }
+  db.collection('reports').onSnapshot(function(snap){
+    document.getElementById('connStatus').textContent='🟢 متصل';
+    document.getElementById('connStatus').className='online';
+    snap.docChanges().forEach(function(ch){
+      var data = ch.doc.data(); data.id = data.id!=null?data.id:ch.doc.id;
+      if (data.lat===undefined||data.lng===undefined) return;
+      var idx = Store.reports.findIndex(function(r){return String(r.id)===String(data.id);});
+      if (ch.type==='added'){
+        if(idx===-1){ Store.reports.push(data); if(!firstLoad) UI_newReport(data); }
+      }
+      else if (ch.type==='modified'){ if(idx>-1) Store.reports[idx]=data; }
+      else if (ch.type==='removed'){ if(idx>-1) Store.reports.splice(idx,1); delete Store.known[String(data.id)]; }
+    });
+    /* أول تحميل: علّم كل الموجود كـ "معروف" بصمت حتى لا تنطلق تنبيهات قديمة */
+    if(firstLoad){
+      snap.forEach(function(d){ var dd=d.data(); Store.known[String(dd.id!=null?dd.id:d.id)]=true; });
+      firstLoad=false;
+    }
+    Store.emit();
+  }, function(err){
+    document.getElementById('connStatus').textContent='🔴 انقطع الاتصال';
+    document.getElementById('connStatus').className='offline';
+    toast('⚠️ انقطع الاتصال بقاعدة البيانات — سيحاول تلقائياً','warn');
+  });
+}
+/* تنبيه البلاغ الجديد (بعد اكتمال أول تحميل فقط) */
+function UI_newReport(r){
+  var key = String(r.id);
+  if (Store.known[key]) return;
+  Store.known[key] = true;
+  if (r.status==='تم الإخماد') return;
+  var msg = '🚨 بلاغ جديد: '+(r.type||'حريق')+' — '+(r.location||'بدون وصف')+' ['+(r.severity||'')+']';
+  buzz([300,150,300,150,300]);
+  if (document.getElementById('screen-drv').classList.contains('active') && Drv.lat!=null){
+    var d = haversine(Drv.lat,Drv.lng,r.lat,r.lng);
+    if (d<=45) speak('تنبيه. حريق جديد على بعد '+fmtDist(d));
+  }
+  toast(msg,'err');
+}
+
+function updateStatus(id, status, by){
+  if(!db || !navigator.onLine){ toast('❌ يتطلب اتصالاً بالإنترنت','warn'); return; }
+  var who = by || (UI.ROLES[UI.currentRole] ? UI.ROLES[UI.currentRole].name : '—');
+  return db.collection('reports').doc(String(id)).update({
+    status: status,
+    lastUpdate: new Date().toISOString(),
+    handledBy: who
+  }).then(function(){ toast('✅ الحالة ← '+status,'ok'); })
+    .catch(function(e){ toast('❌ فشل التحديث: '+e.message,'err'); });
+}
+function deleteReport(id){
+  if(!confirm('حذف البلاغ نهائياً؟')) return;
+  db.collection('reports').doc(String(id)).delete()
+    .then(function(){ toast('🗑️ تم الحذف','ok'); })
+    .catch(function(e){ toast('❌ '+e.message,'err'); });
+}
+
+/* ================================================================
+   غرفة العمليات
+================================================================ */
+var Ops = {
+  inited:false, pickerMarker:null, pickerMap:null, pickerModal:null,
+  init: function(){
+    if(!Ops.inited){ Ops.inited=true; Store.onChange.push(Ops.render); }
+    Ops.render();
+  },
+  render: function(){
+    var el=document.getElementById('opsList'); if(!el) return;
+    var arr=Store.reports.slice().sort(function(a,b){return (b.id||0)-(a.id||0);});
+    if(!arr.length){ el.innerHTML='<div class="hint">لا توجد بلاغات بعد — سجّل أول بلاغ من الأعلى</div>'; return; }
+    var html='';
+    arr.forEach(function(r){
+      var cls = r.status==='تم الإخماد'?'rep-row done':(r.status==='قيد المعالجة'?'rep-row proc':'rep-row');
+      var st = r.status==='قيد المعالجة'?'b-proc':(r.status==='تم الإخماد'?'b-done':'b-new');
+      var sv = { 'حرج':'b-crit','عالي':'b-high','متوسط':'b-med','منخفض':'b-low' }[r.severity]||'b-low';
+      var time = r.createdAt ? new Date(r.createdAt).toLocaleString('ar') : '';
+      html+='<div class="'+cls+'">';
+      html+='<div class="rep-top"><span class="rep-title">🔥 '+esc(r.type)+' — '+esc(r.severity)+'</span>'
+          +'<span><span class="badge '+st+'">'+esc(r.status)+'</span><span class="badge '+sv+'">'+esc(r.severity)+'</span></span></div>';
+      html+='<div class="rep-sub">📍 '+esc(r.location||'غير محدد')+' &nbsp;|&nbsp; 🌐 '+Number(r.lat).toFixed(4)+', '+Number(r.lng).toFixed(4)+'</div>';
+      html+='<div class="rep-sub">🕒 '+time+(r.handledBy?' &nbsp;|&nbsp; 👤 '+esc(r.handledBy):'')+'</div>';
+      if(r.status!=='تم الإخماد'){
+        html+='<div class="row" style="margin-top:8px">';
+        if(r.status==='جديد') html+='<button class="btn btn-orange btn-sm" onclick="updateStatus('+r.id+',\'قيد المعالجة\')">🚒 إرسال فرقة</button>';
+        html+='<button class="btn btn-green btn-sm" onclick="updateStatus('+r.id+',\'تم الإخماد\')">✅ تم الإخماد</button>';
+        html+='<button class="btn btn-red btn-sm" onclick="deleteReport('+r.id+')">🗑️ حذف</button>';
+        html+='</div>';
+      }
+      html+='</div>';
+    });
+    el.innerHTML=html;
+  },
+  useMyLocation: function(){
+    if(!navigator.geolocation){ toast('❌ GPS غير مدعوم','err'); return; }
+    toast('🔍 جاري تحديد الموقع...');
+    navigator.geolocation.getCurrentPosition(function(p){
+      document.getElementById('fLat').value=p.coords.latitude.toFixed(6);
+      document.getElementById('fLng').value=p.coords.longitude.toFixed(6);
+      toast('📍 تم التقاط موقعك','ok');
+    },function(){ toast('❌ تعذّر تحديد الموقع','err'); },{enableHighAccuracy:true,timeout:20000});
+  },
+  openMapPicker: function(){
+    if(!Ops.pickerModal){
+      var m=document.createElement('div');
+      m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:8000;display:flex;flex-direction:column;padding:14px;gap:10px';
+      m.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center"><b style="color:#ce93d8">🗺️ انقر على الخريطة لتحديد موقع الحريق</b><button class="btn btn-gray btn-sm" id="pkClose">إغلاق ✕</button></div><div id="pkMap" style="flex:1;border-radius:10px"></div>';
+      document.body.appendChild(m);
+      Ops.pickerModal=m;
+      document.getElementById('pkClose').onclick=function(){ m.style.display='none'; };
+      Ops.pickerMap=L.map('pkMap').setView([34.8,38.0],7);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(Ops.pickerMap);
+      Ops.pickerMap.on('click',function(e){
+        document.getElementById('fLat').value=e.latlng.lat.toFixed(6);
+        document.getElementById('fLng').value=e.latlng.lng.toFixed(6);
+        if(Ops.pickerMarker) Ops.pickerMarker.setLatLng(e.latlng);
+        else Ops.pickerMarker=L.marker(e.latlng).addTo(Ops.pickerMap);
+        toast('📍 تم تحديد النقطة — أغلق الخريطة','ok');
+      });
+    }
+    Ops.pickerModal.style.display='flex';
+    setTimeout(function(){ Ops.pickerMap.invalidateSize(); },150);
+  },
+  submitReport: function(){
+    var lat=parseFloat(document.getElementById('fLat').value);
+    var lng=parseFloat(document.getElementById('fLng').value);
+    if(!validCoords(lat,lng)){ toast('❌ أدخل إحداثيات صحيحة (أو استخدم الخريطة)','warn'); return; }
+    var id=Date.now();
+    var rec={
+      id:id, type:document.getElementById('fType').value,
+      severity:document.getElementById('fSev').value,
+      location:document.getElementById('fLoc').value||'غير محدد',
+      lat:lat, lng:lng, status:'جديد', source:'OPERATIONS',
+      createdAt:new Date().toISOString(), lastUpdate:new Date().toISOString()
+    };
+    saveReportDoc(rec);
+    Ops.clearForm();
+  },
+  clearForm: function(){
+    ['fLoc','fLat','fLng'].forEach(function(i){document.getElementById(i).value='';});
+  }
+};
+
+/* ================================================================
+   المراقب — v4.1: نقرة على الخريطة = لوحة بلاغ قابلة للمشاركة
+================================================================ */
+var Mon = {
+  inited:false, map:null, markers:{}, filter:'all',
+  current:null,   // بلاغ موجود في المنظومة
+  init: function(){
+    if(!Mon.inited){
+      Mon.inited=true;
+      Mon.map=L.map('monMap',{zoomControl:false}).setView([34.8,38.0],7);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(Mon.map);
+      L.control.zoom({position:'bottomleft'}).addTo(Mon.map);
+      Mon.map.on('click', function(e){ Mon.onMapClick(e); });
+      Store.onChange.push(Mon.render);
+    }
+    setTimeout(function(){ Mon.map.invalidateSize(); },150);
+    Mon.render();
+  },
+  setFilter: function(f, el){
+    Mon.filter=f;
+    document.querySelectorAll('#monFilters .chip').forEach(function(c){c.classList.remove('on');});
+    el.classList.add('on');
+    Mon.render();
+  },
+  visible: function(){
+    return Store.reports.filter(function(r){
+      if(Mon.filter==='all') return true;
+      if(Mon.filter==='حرج') return r.severity==='حرج';
+      return r.status===Mon.filter;
+    });
+  },
+  render: function(){
+    if(!Mon.inited) return;
+    var arr=Mon.visible();
+    var all=Store.reports;
+    document.getElementById('stNew').textContent  = all.filter(function(r){return r.status==='جديد'}).length;
+    document.getElementById('stProc').textContent = all.filter(function(r){return r.status==='قيد المعالجة'}).length;
+    document.getElementById('stDone').textContent = all.filter(function(r){return r.status==='تم الإخماد'}).length;
+    var seen={};
+    arr.forEach(function(r){
+      seen[String(r.id)]=true;
+      var color = r.status==='تم الإخماد'?'#4CAF50':(r.status==='قيد المعالجة'?'#FF9800':'#f44336');
+      var icon=L.divIcon({html:'<div style="background:'+color+';width:18px;height:18px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 16px '+color+'"></div>',iconSize:[18,18]});
+      if(Mon.markers[r.id]){ Mon.markers[r.id].setLatLng([r.lat,r.lng]); }
+      else{
+        var m=L.marker([r.lat,r.lng],{icon:icon,bubblingMouseEvents:false}).addTo(Mon.map);
+        m.bindPopup('<b style="color:#ff8a80">🔥 '+esc(r.type)+'</b><br>📍 '+esc(r.location)+'<br>الحالة: '+esc(r.status)+'<br>الخطورة: '+esc(r.severity));
+        Mon.markers[r.id]=m;
+      }
+    });
+    Object.keys(Mon.markers).forEach(function(k){
+      if(!seen[k]){ Mon.map.removeLayer(Mon.markers[k]); delete Mon.markers[k]; }
+    });
+    var list=document.getElementById('monList');
+    var sorted=arr.slice().sort(function(a,b){return (b.id||0)-(a.id||0);}).slice(0,15);
+    if(!sorted.length){ list.innerHTML='<div class="hint" style="padding:10px">✅ لا بلاغات ضمن هذا الفلتر — انقر على الخريطة لإنشاء بلاغ جديد</div>'; return; }
+    var html='';
+    sorted.forEach(function(r){
+      var age = r.createdAt ? Math.max(0,Math.round((Date.now()-new Date(r.createdAt))/60000)) : null;
+      html+='<div class="mon-item" onclick="Mon.focus('+r.lat+','+r.lng+','+r.id+')">';
+      html+='<div><div class="mi-t">🔥 '+esc(r.type)+' — '+esc(r.severity)+'</div>'
+          +'<div class="mi-s">'+esc(r.location||'')+' • '+esc(r.status)+(age!==null?' • قبل '+age+' د':'')+'</div></div>';
+      html+='<span class="mi-d">👁️</span></div>';
+    });
+    list.innerHTML=html;
+  },
+  focus: function(lat,lng,id){
+    Mon.map.flyTo([lat,lng],14);
+    var r=Store.get(id); if(r) Mon.showDetail(r);
+  },
+
+  /* ---------- النقرة على الخريطة ---------- */
+  onMapClick: function(e){
+    /* بلاغ موجود ضمن 40 بكسل؟ اعرضه، وإلا أنشئ مسودة من النقطة */
+    var pt=Mon.map.latLngToContainerPoint(e.latlng), best=null, bd=40;
+    Store.reports.forEach(function(r){
+      var mp=Mon.map.latLngToContainerPoint([r.lat,r.lng]);
+      var d=Math.hypot(pt.x-mp.x, pt.y-mp.y);
+      if(d<bd){ bd=d; best=r; }
+    });
+    if(best) Mon.showDetail(best);
+    else Mon.showDetail(null, e.latlng.lat, e.latlng.lng);
+  },
+  showDetail: function(r, dLat, dLng){
+    Mon.current = r || null;
+    var v=function(id,val){ document.getElementById(id).value = (val==null?'':val); };
+    document.getElementById('mdTitle').textContent = r ? '📋 بيانات البلاغ #'+(r.id||'') : '🆕 بلاغ جديد من الخريطة';
+    v('mdType', r ? r.type : 'حريق غابة');
+    v('mdSev',  r ? r.severity : 'عالي');
+    v('mdLoc',  r ? r.location : '');
+    v('mdLat',  r ? r.lat : (dLat!=null?dLat.toFixed(6):''));
+    v('mdLng',  r ? r.lng : (dLng!=null?dLng.toFixed(6):''));
+    document.getElementById('mdMeta').innerHTML = r
+      ? '📊 الحالة: <b style="color:#4fc3f7">'+esc(r.status)+'</b>'+(r.handledBy?(' • 👤 '+esc(r.handledBy)):'')
+        +'<br>🕒 '+(r.createdAt?new Date(r.createdAt).toLocaleString('ar'):'—')
+        +'<br>📡 المصدر: '+esc(r.source||'—')
+      : '✏️ مسودة غير محفوظة — عدّل الحقول ثم: حفظ / مشاركة / إرسال للملاحة';
+    document.getElementById('monDetail').classList.add('active');
+  },
+  closeDetail: function(){ document.getElementById('monDetail').classList.remove('active'); Mon.current=null; },
+  center: function(){
+    var lat=parseFloat(document.getElementById('mdLat').value), lng=parseFloat(document.getElementById('mdLng').value);
+    if(isNaN(lat)||isNaN(lng)){ toast('❌ لا إحداثيات للتوسيط','warn'); return; }
+    Mon.map.flyTo([lat,lng],15);
+  },
+  collect: function(){
+    var lat=parseFloat(document.getElementById('mdLat').value);
+    var lng=parseFloat(document.getElementById('mdLng').value);
+    return {
+      id: Mon.current ? Mon.current.id : null,
+      type: document.getElementById('mdType').value,
+      severity: document.getElementById('mdSev').value,
+      location: document.getElementById('mdLoc').value || 'غير محدد',
+      lat: lat, lng: lng,
+      status: Mon.current ? Mon.current.status : 'جديد'
+    };
+  },
+  msg: function(){
+    var r=Mon.collect();
+    var coords = isNaN(r.lat)||isNaN(r.lng) ? 'غير محدد' : r.lat.toFixed(5)+', '+r.lng.toFixed(5);
+    return '🚨 *بلاغ حريق — درع الغابة*\n'
+      +'🔥 النوع: '+r.type+'\n'
+      +'⚠️ الخطورة: '+r.severity+'\n'
+      +'📍 الموقع: '+r.location+'\n'
+      +'🌐 الإحداثيات: '+coords+'\n'
+      +'📊 الحالة: '+r.status+'\n'
+      +'⏰ الوقت: '+new Date().toLocaleString('ar');
+  },
+  shareWA: function(){ window.open('https://wa.me/?text='+encodeURIComponent(Mon.msg()),'_blank'); },
+  shareSMS: function(){
+    var body=encodeURIComponent(Mon.msg());
+    window.location.href='sms:?&body='+body;
+  },
+  saveReport: function(){
+    var r=Mon.collect();
+    if(!validCoords(r.lat,r.lng)){ toast('❌ إحداثيات غير صحيحة','warn'); return; }
+    var rec={
+      id: r.id!=null ? r.id : Date.now(),
+      type:r.type, severity:r.severity, location:r.location,
+      lat:r.lat, lng:r.lng, status:r.status,
+      source: (Mon.current && Mon.current.source) ? Mon.current.source : 'MONITOR',
+      createdAt: (Mon.current && Mon.current.createdAt) ? Mon.current.createdAt : new Date().toISOString(),
+      lastUpdate: new Date().toISOString()
+    };
+    saveReportDoc(rec);
+    if(Mon.current) Mon.showDetail(Store.get(rec.id)||Object.assign({id:rec.id},rec));
+  },
+  sendToNav: function(){
+    var r=Mon.collect();
+    if(!validCoords(r.lat,r.lng)){ toast('❌ إحداثيات غير صحيحة','warn'); return; }
+    if(!navigator.onLine || !db){ toast('❌ يتطلب اتصالاً بالإنترنت','warn'); return; }
+    var mark=function(id){
+      db.collection('reports').doc(String(id)).update({
+        status:'قيد المعالجة', lastUpdate:new Date().toISOString(), handledBy:'المراقب'
+      }).then(function(){
+        toast('🧭 أُرسل البلاغ لشاشة الملاحة — سيراه السائق فوراً ويمكنه بدء التوجيه','ok');
+      }).catch(function(e){ toast('❌ '+e.message,'err'); });
+    };
+    if(r.id!=null){ mark(r.id); }
+    else{
+      var rec={ id:Date.now(), type:r.type, severity:r.severity, location:r.location,
+        lat:r.lat, lng:r.lng, status:'جديد', source:'MONITOR',
+        createdAt:new Date().toISOString(), lastUpdate:new Date().toISOString() };
+      db.collection('reports').doc(String(rec.id)).set(rec)
+        .then(function(){ mark(rec.id); })
+        .catch(function(e){ toast('❌ '+e.message,'err'); });
+    }
+  }
+};
+
+/* ================================================================
+   سائق الإطفاء (الملاحة) — v4.1: إعادة رسم ذكية (لا استنزاف)
+================================================================ */
+var Drv = {
+  inited:false, map:null, userMarker:null, accCircle:null,
+  markers:{}, routeLine:null, casing:null,
+  lat:null, lng:null, heading:0, watchId:null,
+  selected:null, route:null, lastStep:-1, arrived:false,
+  RADIUS:45, _sig:'',
+
+  init: function(){
+    if(!Drv.inited){
+      Drv.inited=true;
+      Drv.map=L.map('drvMap',{zoomControl:false,tap:false}).setView([34.8,38.0],7);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(Drv.map);
+      L.control.zoom({position:'bottomleft'}).addTo(Drv.map);
+      Store.onChange.push(Drv.render);
+      setInterval(Drv.live, 2000);
+      Drv.track();
+    }
+    setTimeout(function(){ Drv.map.invalidateSize(); },150);
+    Drv.render();
+  },
+  track: function(){
+    if(!navigator.geolocation){ toast('❌ الجهاز لا يدعم GPS','err'); return; }
+    if(Drv.watchId) navigator.geolocation.clearWatch(Drv.watchId);
+    Drv.watchId=navigator.geolocation.watchPosition(function(p){
+      var plat=Drv.lat, plng=Drv.lng;
+      Drv.lat=p.coords.latitude; Drv.lng=p.coords.longitude;
+      if(plat!==null){ var d=haversine(plat,plng,Drv.lat,Drv.lng); if(d>0.01) Drv.heading=bearing(plat,plng,Drv.lat,Drv.lng); }
+      var ar=document.getElementById('compassArrow'); if(ar) ar.style.transform='rotate('+Drv.heading+'deg)';
+      if(!Drv.userMarker){
+        var icon=L.divIcon({html:'<div style="background:#1976d2;width:20px;height:20px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 6px rgba(25,118,210,.25),0 0 20px rgba(25,118,210,.9)"></div>',iconSize:[20,20]});
+        Drv.userMarker=L.marker([Drv.lat,Drv.lng],{icon:icon,zIndexOffset:1000}).addTo(Drv.map);
+        Drv.map.flyTo([Drv.lat,Drv.lng],14);
+      } else Drv.userMarker.setLatLng([Drv.lat,Drv.lng]);
+      if(!Drv.accCircle) Drv.accCircle=L.circle([Drv.lat,Drv.lng],{radius:p.coords.accuracy,color:'#1976d2',fillOpacity:.1,weight:1,dashArray:'4,4'}).addTo(Drv.map);
+      else { Drv.accCircle.setLatLng([Drv.lat,Drv.lng]); Drv.accCircle.setRadius(p.coords.accuracy); }
+      Drv.render();
+    },function(e){
+      toast(e.code===1?'❌ فعّل GPS واسمح بالوصول للموقع':'⚠️ الموقع غير متاح','err');
+    },{enableHighAccuracy:true,timeout:25000,maximumAge:3000});
+  },
+  locate: function(){ if(Drv.lat) Drv.map.flyTo([Drv.lat,Drv.lng],16); Drv.track(); },
+
+  render: function(){
+    if(!Drv.inited) return;
+    var act=Store.active();
+    var items=act.map(function(r){
+      var d=Drv.lat!=null?haversine(Drv.lat,Drv.lng,r.lat,r.lng):null;
+      return {r:r,d:d};
+    }).sort(function(a,b){ if(a.d===null)return 1; if(b.d===null)return -1; return a.d-b.d; });
+    var el=document.getElementById('fireList');
+    /* إعادة رسم كاملة فقط عند تغيّر البيانات/الاختيار — وإلا تحديث المسافات فقط */
+    var sig=act.map(function(r){return r.id+':'+r.status}).join('|')+'#'+(Drv.selected||'');
+    if(sig===Drv._sig && el && el.children.length){
+      Drv.updateDistances(items);
+    } else {
+      Drv._sig=sig;
+      if(!items.length){ el.innerHTML='<div class="hint">✅ لا بلاغات نشطة — في انتظار غرفة العمليات</div>'; }
+      else{
+        var html='';
+        items.forEach(function(it){
+          var r=it.r, far=it.d!==null&&it.d>Drv.RADIUS;
+          var st=r.status==='قيد المعالجة'?'b-proc':'b-new';
+          html+='<div class="fire-item'+(Drv.selected===r.id?' selected':'')+(far?' far':'')+'" onclick="Drv.select('+r.id+')">';
+          html+='<div class="fi-top"><span class="fi-title">🔥 '+esc(r.type)+' — '+esc(r.severity)+'</span><span class="fi-dist" id="dd-'+r.id+'">'+(it.d!==null?fmtDist(it.d):'--')+'</span></div>';
+          html+='<div class="fi-sub">📍 '+esc(r.location||'')+' &nbsp;<span class="badge '+st+'">'+esc(r.status)+'</span></div></div>';
+        });
+        el.innerHTML=html;
+      }
+    }
+    /* العلامات: تحديث خفيف دائماً */
+    var seen={};
+    act.forEach(function(r){
+      seen[String(r.id)]=true;
+      var sel=Drv.selected===r.id;
+      var color=r.status==='قيد المعالجة'?'#FF9800':'#f44336';
+      var s=sel?26:18;
+      var icon=L.divIcon({html:'<div style="background:'+color+';width:'+s+'px;height:'+s+'px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 18px '+color+'"></div>',iconSize:[s,s]});
+      if(Drv.markers[r.id]){ Drv.markers[r.id].setLatLng([r.lat,r.lng]); }
+      else{
+        var m=L.marker([r.lat,r.lng],{icon:icon,bubblingMouseEvents:false}).addTo(Drv.map);
+        m.on('click',function(){ Drv.select(r.id); });
+        Drv.markers[r.id]=m;
+      }
+    });
+    Object.keys(Drv.markers).forEach(function(k){
+      if(!seen[k]){ Drv.map.removeLayer(Drv.markers[k]); delete Drv.markers[k]; }
+    });
+  },
+  updateDistances: function(items){
+    items.forEach(function(it){
+      var el=document.getElementById('dd-'+it.r.id);
+      if(el && it.d!==null) el.textContent=fmtDist(it.d);
+    });
+  },
+
+  select: function(id){
+    var r=Store.get(id); if(!r) return;
+    Drv.selected=id; Drv.arrived=false;
+    Drv.render();
+    if(Drv.lat===null){ toast('⏳ بانتظار GPS...','warn'); return; }
+    Drv.routeTo(Drv.lat,Drv.lng,r.lat,r.lng);
+  },
+  routeTo: function(oLa,oLo,dLa,dLo){
+    toast('🧭 جاري حساب المسار...');
+    fetch('https://router.project-osrm.org/route/v1/driving/'+oLo+','+oLa+';'+dLo+','+dLa+'?overview=full&geometries=geojson&steps=true')
+      .then(function(r){return r.json();}).then(function(data){
+        if(!data.routes||!data.routes.length) throw 0;
+        Drv.route=data.routes[0];
+        var c=Drv.route.geometry.coordinates.map(function(x){return [x[1],x[0]];});
+        if(Drv.casing) Drv.map.removeLayer(Drv.casing);
+        if(Drv.routeLine) Drv.map.removeLayer(Drv.routeLine);
+        Drv.casing=L.polyline(c,{color:'#000',weight:10,opacity:.35}).addTo(Drv.map);
+        Drv.routeLine=L.polyline(c,{color:'#ff6f00',weight:6,opacity:.95}).addTo(Drv.map);
+        Drv.map.fitBounds(Drv.routeLine.getBounds().pad(0.15),{maxZoom:15});
+        document.getElementById('navCard').classList.add('active');
+        document.getElementById('sheet').classList.add('collapsed');
+        speak('تم حساب المسار. المسافة '+fmtDist(Drv.route.distance/1000));
+        toast('✅ تم حساب المسار','ok');
+      }).catch(function(){
+        if(Drv.routeLine) Drv.map.removeLayer(Drv.routeLine);
+        Drv.routeLine=L.polyline([[oLa,oLo],[dLa,dLo]],{color:'#ff6f00',weight:5,dashArray:'10,8'}).addTo(Drv.map);
+        Drv.map.fitBounds(Drv.routeLine.getBounds().pad(0.2));
+        toast('⚠️ تعذّر OSRM — خط مباشر معروض','warn');
+      });
+  },
+  instr: function(type, mod, road){
+    var T={'turn':'انعطف','new name':'تابع','depart':'انطلق','arrive':'وصلت','merge':'اندمج','fork':'خذ الفرع','roundabout':'ادخل الدوار','rotary':'ادخل الدوار','continue':'تابع','off ramp':'اخرج من المنحدر','on ramp':'اسلك المنحدر'};
+    var M={'left':'يساراً','right':'يميناً','slight left':'قليلاً يساراً','slight right':'قليلاً يميناً','sharp left':'بحدة يساراً','sharp right':'بحدة يميناً','straight':'مستقيماً','uturn':'بدوران كامل'};
+    var t=(T[type]||'تابع')+' '+(M[mod]||'');
+    return t.trim();
+  },
+  arrow: function(mod){
+    mod=mod||'';
+    if(mod.indexOf('left')>-1) return mod.indexOf('slight')>-1?'↖️':'⬅️';
+    if(mod.indexOf('right')>-1) return mod.indexOf('slight')>-1?'↗️':'➡️';
+    if(mod.indexOf('uturn')>-1) return '🔄';
+    return '⬆️';
+  },
+  live: function(){
+    if(!Drv.route||Drv.selected===null||Drv.lat===null||!Drv.inited) return;
+    var r=Store.get(Drv.selected); if(!r){ Drv.stopNav(); return; }
+    var direct=haversine(Drv.lat,Drv.lng,r.lat,r.lng);
+    var routeKm=Drv.route.distance/1000;
+    var est=direct*1.35;
+    var remainKm=Math.max(0.05, Math.min(est, routeKm>0?routeKm:est));
+    document.getElementById('navDist').textContent=remainKm.toFixed(1);
+    document.getElementById('navTime').textContent=Math.max(1,Math.round(remainKm/50*60));
+    var eta=new Date(Date.now()+remainKm/50*3600000);
+    document.getElementById('navArrive').textContent=('0'+eta.getHours()).slice(-2)+':'+('0'+eta.getMinutes()).slice(-2);
+    var leg=Drv.route.legs[0];
+    var best=0,bd=1e9;
+    for(var i=0;i<leg.steps.length;i++){ var l=leg.steps[i].maneuver.location; var d=haversine(Drv.lat,Drv.lng,l[1],l[0]); if(d<bd){bd=d;best=i;} }
+    var st=leg.steps[best];
+    document.getElementById('navArrow').textContent=Drv.arrow(st.maneuver.modifier);
+    var txt=Drv.instr(st.maneuver.type,st.maneuver.modifier,st.name);
+    document.getElementById('navInstr').textContent=txt;
+    document.getElementById('navRoad').textContent='بعد '+fmtDist(bd);
+    if(best!==Drv.lastStep){ Drv.lastStep=best; if(bd>0.08&&best<leg.steps.length-1) speak('بعد '+fmtDist(bd)+'، '+txt); }
+    if(direct<0.12&&!Drv.arrived){
+      Drv.arrived=true; speak('لقد وصلت إلى موقع الحريق'); buzz([500,200,500]);
+      toast('🏁 وصلت إلى موقع الحريق','ok');
+    }
+  },
+  stopNav: function(){
+    if(Drv.routeLine){Drv.map.removeLayer(Drv.routeLine);Drv.routeLine=null;}
+    if(Drv.casing){Drv.map.removeLayer(Drv.casing);Drv.casing=null;}
+    Drv.route=null; Drv.selected=null; Drv.lastStep=-1;
+    document.getElementById('navCard').classList.remove('active');
+    Drv.render();
+    toast('⏹️ تم إيقاف التوجيه');
+  },
+  accept: function(){ if(Drv.selected===null){toast('❌ اختر بلاغاً','warn');return;} updateStatus(Drv.selected,'قيد المعالجة'); },
+  done: function(){
+    if(Drv.selected===null){toast('❌ اختر بلاغاً','warn');return;}
+    if(!confirm('تأكيد: تم إخماد الحريق؟')) return;
+    updateStatus(Drv.selected,'تم الإخماد'); Drv.stopNav();
+  },
+  external: function(){
+    var r=Store.get(Drv.selected);
+    if(!r){toast('❌ اختر بلاغاً','warn');return;}
+    window.open('https://www.google.com/maps/dir/?api=1&destination='+r.lat+','+r.lng+'&travelmode=driving','_blank');
+  }
+};
+
+/* ---------- الإقلاع ---------- */
+UI.loadPws();
+startSync();
+if(auth){
+  auth.onAuthStateChanged(function(u){ if(!u) auth.signInAnonymously().catch(function(){}); });
+}
+var session=localStorage.getItem('fs_session');
+if(session && UI.ROLES[session]){ UI.enter(session); }
+else { document.getElementById('loginScreen').style.display='flex'; }
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load',function(){ navigator.serviceWorker.register('./sw.js').catch(function(){}); });
+}
+</script>
+</body>
+</html>
